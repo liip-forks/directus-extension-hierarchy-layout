@@ -2,7 +2,9 @@ import {
     defineLayout,
     getFieldsFromTemplate,
     useCollection,
+    useExtensions,
     useItems,
+    useStores,
     useSync
 } from '@directus/extensions-sdk';
 import LayoutComponent from './layout.vue';
@@ -32,6 +34,14 @@ export default defineLayout({
         const {collection, filter, search, filterUser} = toRefs(props);
         const {info, primaryKeyField, fields: fieldsInCollection} = useCollection(collection);
 
+        // Resolve inject-based dependencies once, here in setup(), where Vue's
+        // `inject` is valid. Passing them into the `fields` computed avoids calling
+        // `useStores`/`useExtensions` on re-evaluation when this layout component is
+        // reused across collections and no component instance is active.
+        const {useFieldsStore} = useStores();
+        const fieldsStore = useFieldsStore();
+        const extensions = useExtensions();
+
         function useLayoutQuery() {
             const page = syncRefProperty(layoutQuery, 'page', 1);
             const limit = syncRefProperty(layoutQuery, 'limit', -1);
@@ -57,7 +67,7 @@ export default defineLayout({
                 }
                 return [
                     ...fields,
-                    ...adjustFieldsForDisplays(templateFields, props.collection),
+                    ...adjustFieldsForDisplays(templateFields, props.collection, {fieldsStore, extensions}),
                 ];
             });
 

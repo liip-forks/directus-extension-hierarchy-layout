@@ -55,10 +55,6 @@ export default defineLayout({
                         ...getFieldsFromTemplate(optTitle.value)
                     );
                 }
-                console.log([
-                    templateFields,
-                    adjustFieldsForDisplays(templateFields, props.collection),
-                ])
                 return [
                     ...fields,
                     ...adjustFieldsForDisplays(templateFields, props.collection),
@@ -107,7 +103,10 @@ export default defineLayout({
             });
         })
 
-        if (relationFields.value.length === 0) {
+        if (
+            relationFields.value.length > 0 &&
+            !relationFields.value.some(field => field.field === optParentField.value)
+        ) {
             optParentField.value = relationFields.value[0].field;
         }
 

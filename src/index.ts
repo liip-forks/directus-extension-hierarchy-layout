@@ -7,7 +7,7 @@ import {
 } from '@directus/extensions-sdk';
 import LayoutComponent from './layout.vue';
 import ForestOptions from "./hierarchy-options.vue";
-import {computed, ref, toRefs, unref} from 'vue';
+import {computed, ref, toRefs, unref, watch} from 'vue';
 import {syncRefProperty} from "./composables/use.sync.ref.property";
 import {useRouter} from "vue-router";
 import {adjustFieldsForDisplays} from "./composables/adjust-fields-for-displays";
@@ -121,6 +121,7 @@ export default defineLayout({
                 filter,
                 search,
             });
+        watch(fields, () => getItems());
 
         function getLinkForItem(item: Record<string, any>) {
             if (!primaryKeyField.value) return;

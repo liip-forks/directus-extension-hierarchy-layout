@@ -17,7 +17,7 @@
 				<render-template
 					:collection="collection"
 					:item="item"
-					:template="optTitle"/>
+					:template="title"/>
 			</div>
 
 			<div>
@@ -50,12 +50,33 @@ const expand = ref(true);
 const props = defineProps<{
 	item: any;
 	optTitle: string;
+	optParentField: string;
 	collection: string;
 	hasChildren: boolean;
 	selectMode: boolean;
 	selection: Array<number | string>;
 	edit: (item) => void;
 }>();
+
+/**
+ * A row at the top level renders the title without its parent placeholders, and
+ * without the brackets around them: `{{name}} ({{parent.name}})` reads
+ * "Home (--)" otherwise, because `render-template` prints a null value as `--`
+ * and a Directus template has no conditionals.
+ *
+ * Dropping the brackets is the part a display option cannot do. The field store
+ * resolves `parent.name` to the very same field as `name`, so a prefix/suffix
+ * set there to bracket the parent would bracket the row's own name as well.
+ */
+const title = computed(() => {
+	if (props.item[props.optParentField]) return props.optTitle;
+
+	const placeholder = `{{\\s*${props.optParentField}(\\.[^}]*)?\\s*}}`;
+
+	return props.optTitle
+		.replace(new RegExp(`\\s*[([{]?\\s*${placeholder}\\s*[)\\]}]?`, 'g'), '')
+		.trim();
+});
 
 const checkedIcon = computed(() => {
 	return props.selection?.indexOf(props.item.id) >= 0 ? 'check_circle' : 'radio_button_unchecked';

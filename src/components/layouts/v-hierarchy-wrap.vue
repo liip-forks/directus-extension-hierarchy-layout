@@ -89,9 +89,24 @@ const titleParts = computed(() => {
 
 const ownTitle = computed(() => titleParts.value.own);
 
-const parentTitle = computed(() =>
-	props.item[props.optParentField] ? titleParts.value.parent : ''
-);
+/**
+ * A drop writes the new parent's bare key into the row (`updateItems`), so a
+ * part that reads *through* the relation has nothing to resolve until the list
+ * has been read back, and `render-template` would print `--`. Treat that as
+ * unknown and leave the part out; a part that prints the key itself is
+ * unaffected.
+ */
+const parentResolved = computed(() => {
+	const parent = props.item[props.optParentField];
+
+	if (!parent) return false;
+
+	const readsRelation = new RegExp(`{{\\s*${props.optParentField}\\.`).test(titleParts.value.parent);
+
+	return !readsRelation || typeof parent === 'object';
+});
+
+const parentTitle = computed(() => (parentResolved.value ? titleParts.value.parent : ''));
 
 const checkedIcon = computed(() => {
 	return props.selection?.indexOf(props.item.id) >= 0 ? 'check_circle' : 'radio_button_unchecked';

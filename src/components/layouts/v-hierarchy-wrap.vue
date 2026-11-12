@@ -13,11 +13,18 @@
 				<v-icon v-else class="drag-handle" name="drag_handle"/>
 			</v-list-item-icon>
 
-			<div class="" style="flex-grow: 1">
+			<div class="title" style="flex-grow: 1">
 				<render-template
+					v-if="ownTitle"
 					:collection="collection"
 					:item="item"
-					:template="title"/>
+					:template="ownTitle"/>
+				<render-template
+					v-if="parentTitle"
+					class="parent"
+					:collection="collection"
+					:item="item"
+					:template="parentTitle"/>
 			</div>
 
 			<div>
@@ -59,24 +66,32 @@ const props = defineProps<{
 }>();
 
 /**
- * A row at the top level renders the title without its parent placeholders, and
- * without the brackets around them: `{{name}} ({{parent.name}})` reads
- * "Home (--)" otherwise, because `render-template` prints a null value as `--`
- * and a Directus template has no conditionals.
+ * The title is rendered in two halves: the row's own, and the part that reads
+ * the parent relation — `{{name}}` and `({{parent.name}})` — so the second can
+ * be subdued, and so a row at the top level can leave it out altogether,
+ * brackets and all. `{{name}} ({{parent.name}})` reads "Home (--)" otherwise,
+ * because `render-template` prints a null value as `--` and a Directus template
+ * has no conditionals.
  *
- * Dropping the brackets is the part a display option cannot do. The field store
- * resolves `parent.name` to the very same field as `name`, so a prefix/suffix
- * set there to bracket the parent would bracket the row's own name as well.
+ * Neither half is reachable through a display option: the field store resolves
+ * `parent.name` to the very same field as `name`, so a colour or a prefix set
+ * there would apply to the row's own name just as much.
  */
-const title = computed(() => {
-	if (props.item[props.optParentField]) return props.optTitle;
-
+const titleParts = computed(() => {
 	const placeholder = `{{\\s*${props.optParentField}(\\.[^}]*)?\\s*}}`;
+	const pattern = new RegExp(`\\s*[([{]?\\s*${placeholder}\\s*[)\\]}]?`, 'g');
 
-	return props.optTitle
-		.replace(new RegExp(`\\s*[([{]?\\s*${placeholder}\\s*[)\\]}]?`, 'g'), '')
-		.trim();
+	return {
+		own: props.optTitle.replace(pattern, '').trim(),
+		parent: (props.optTitle.match(pattern) ?? []).join(' ').trim(),
+	};
 });
+
+const ownTitle = computed(() => titleParts.value.own);
+
+const parentTitle = computed(() =>
+	props.item[props.optParentField] ? titleParts.value.parent : ''
+);
 
 const checkedIcon = computed(() => {
 	return props.selection?.indexOf(props.item.id) >= 0 ? 'check_circle' : 'radio_button_unchecked';
@@ -89,6 +104,17 @@ const selectedClass = computed(() => {
 </script>
 
 <style scoped>
+.title {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+.title .parent {
+	color: var(--theme--foreground-subdued);
+}
+
 .collection-item {
 	margin-top: 8px;
 }

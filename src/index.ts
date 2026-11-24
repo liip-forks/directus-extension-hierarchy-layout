@@ -11,7 +11,7 @@ import LayoutComponent from './layout.vue';
 import ForestOptions from "./hierarchy-options.vue";
 import {computed, ref, toRefs, unref, watch} from 'vue';
 import {syncRefProperty} from "./composables/use.sync.ref.property";
-import {useRouter} from "vue-router";
+import {useRoute, useRouter} from "vue-router";
 import {adjustFieldsForDisplays} from "./composables/adjust-fields-for-displays";
 
 export default defineLayout({
@@ -30,6 +30,27 @@ export default defineLayout({
         const layoutOptions = useSync(props, 'layoutOptions', emit);
         const layoutQuery = useSync(props, 'layoutQuery', emit);
         const router = useRouter()
+        const route = useRoute()
+
+        // Directus 12's Published/Draft switch on a collection page puts the selected
+        // version key in the route query (`?version=draft`); there is no layout prop
+        // for it. The built-in layouts read it from exactly here, so this follows them
+        // rather than reaching into app-internal state.
+        //
+        // A versioned list read returns *only* the rows that carry a version with that
+        // key, each with `$meta.version_id` — so in Draft mode the tree is a handful of
+        // pending pages whose parents are usually absent. They are promoted to the top
+        // level, which turns the tree into the flat "what is pending" list that mode is
+        // for.
+        const version = computed<string | null>(() => {
+            const value = route.query.version;
+            return (Array.isArray(value) ? value[0] : value) ?? null;
+        });
+
+        // A row opened from Draft mode has to open its draft, not the published item.
+        function withVersion(path: string) {
+            return version.value ? `${path}?version=${encodeURIComponent(version.value)}` : path;
+        }
 
         const {collection, filter, search, filterUser} = toRefs(props);
         const {info, primaryKeyField, fields: fieldsInCollection} = useCollection(collection);
@@ -145,13 +166,14 @@ export default defineLayout({
                 fields,
                 filter,
                 search,
+                version,
             });
         watch(fields, () => getItems());
 
         function getLinkForItem(item: Record<string, any>) {
             if (!primaryKeyField.value) return;
 
-            return `/content/${props.collection}/${item[primaryKeyField.value.field]}`;
+            return withVersion(`/content/${props.collection}/${item[primaryKeyField.value.field]}`);
         }
 
         function onItemClick({ item, event }: { item: Item; event: PointerEvent }) {
@@ -166,10 +188,11 @@ export default defineLayout({
                     selection.value = selection.value.filter((item) => item !== primaryKey);
                 }
             } else {
-                const route = `/content/${unref(collection)}/${primaryKey}`;
+                // Not named `route`: that is the useRoute() handle in the outer scope.
+                const path = withVersion(`/content/${unref(collection)}/${primaryKey}`);
 
-                if (event.ctrlKey || event.metaKey) window.open(router.resolve(route).href, '_blank');
-                else router.push(route);
+                if (event.ctrlKey || event.metaKey) window.open(router.resolve(path).href, '_blank');
+                else router.push(path);
             }
         }
         return {
